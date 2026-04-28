@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keda-kafka-consumer
+  namespace: dev
+  labels:
+    app: keda-kafka-consumer
+    component: consumer
+    version: v1
+    managed-by: keda
+    owner: devops-team
+  annotations:
+    description: "Kafka consumer scaled by KEDA"
+    author: "Bruno Blauzius Schuindt"
+spec:
+  # replicas gerenciadas pelo KEDA HPA - não definir aqui
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: settlement-remuneration-unit-app
+  template:
+    metadata:
+      labels:
+        app: settlement-remuneration-unit-app
+        component: consumer
+        version: v1
+    spec:
+      serviceAccountName: settlement-remuneration-unit-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        fsGroup: 100000
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: settlement-remuneration-unit-app
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: settlement-remuneration-unit
+        image: bruno01/keda-kafka:04
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-config
+              key: kafka-brokers
+        - name: KAFKA_USER
+          valueFrom:
+            secretKeyRef:
+              name: kafka-config
+              key: kafka-username
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-config
+              key: kafka-password
+        - name: KAFKA_TOPIC
+          valueFrom:
+            secretKeyRef:
+              name: kafka-config
+              key: kafka-topic
+        - name: KAFKA_CONSUMER_GROUP
+          valueFrom:
+            secretKeyRef:
+              name: kafka-config
+              key: kafka-consumer-group
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - test -f /proc/1/cmdline
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - kill -0 1 2>/dev/null
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+            ephemeral-storage: "2Gi"

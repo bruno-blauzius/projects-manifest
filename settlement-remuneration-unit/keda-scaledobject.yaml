@@ -1,0 +1,26 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: kafka-consumer-scaler
+  namespace: dev
+spec:
+  scaleTargetRef:
+    name: settlement-remuneration-unit-app
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  pollingInterval: 30
+  triggers:
+  - type: kafka
+    metadata:
+      bootstrapServers: b-1.kafka.gk6ci4.c20.kafka.us-east-1.amazonaws.com:9096,b-2.kafka.gk6ci4.c20.kafka.us-east-1.amazonaws.com:9096
+      consumerGroup: settlement-remuneration-unit-consumer-group
+      topic: keda-teste
+      lagThreshold: "2"
+      offsetResetPolicy: latest
+      scaleToZeroOnInvalidOffset: "true"
+      allowIdleConsumers: "true"
+      excludePersistentLag: "false"
+      sasl: scram_sha512
+      tls: enable
+    authenticationRef:
+      name: kafka-trigger-auth

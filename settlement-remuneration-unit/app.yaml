@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/bruno-blauzius/projects-manifest.git
+    repoURL: https://github.com/bruno-blauzius/projects-manifest/tree/main/settlement-remuneration-unit
     targetRevision: main
     path: .
   destination:

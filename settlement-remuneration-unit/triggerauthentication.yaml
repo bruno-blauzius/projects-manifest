@@ -1,0 +1,13 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: kafka-trigger-auth
+  namespace: dev
+spec:
+  secretTargetRef:
+  - parameter: username
+    name: kafka-config
+    key: kafka-username
+  - parameter: password
+    name: kafka-config
+    key: kafka-password
