@@ -45,7 +45,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: settlement-remuneration-unit
-        image: bruno01/keda-kafka:04
+        image: bruno01/settlement-remuneration-unit:01
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
