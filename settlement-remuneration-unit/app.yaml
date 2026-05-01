@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/bruno-blauzius/projects-manifest/tree/main/settlement-remuneration-unit
+    repoURL: https://github.com/bruno-blauzius/projects-manifest
     targetRevision: main
-    path: .
+    path: settlement-remuneration-unit
   destination:
     server: https://kubernetes.default.svc
     namespace: dev

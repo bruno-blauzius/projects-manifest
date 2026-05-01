@@ -9,13 +9,13 @@ spec:
   minReplicaCount: 1
   maxReplicaCount: 10
   pollingInterval: 30
+  cooldownPeriod: 120
   triggers:
   - type: kafka
     metadata:
-      bootstrapServers: b-1.kafka.gk6ci4.c20.kafka.us-east-1.amazonaws.com:9096,b-2.kafka.gk6ci4.c20.kafka.us-east-1.amazonaws.com:9096
       consumerGroup: settlement-remuneration-unit-consumer-group
       topic: keda-teste
-      lagThreshold: "2"
+      lagThreshold: "5"
       offsetResetPolicy: latest
       scaleToZeroOnInvalidOffset: "true"
       allowIdleConsumers: "true"

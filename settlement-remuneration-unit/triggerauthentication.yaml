@@ -6,8 +6,11 @@ metadata:
 spec:
   secretTargetRef:
   - parameter: username
-    name: kafka-config
+    name: settlement-remuneration-unit-secret
     key: kafka-username
   - parameter: password
-    name: kafka-config
+    name: settlement-remuneration-unit-secret
     key: kafka-password
+  - parameter: brokers
+    name: settlement-remuneration-unit-secret
+    key: kafka-brokers

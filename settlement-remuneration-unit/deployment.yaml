@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: keda-kafka-consumer
+  name: settlement-remuneration-unit-app
   namespace: dev
   labels:
-    app: keda-kafka-consumer
+    app: settlement-remuneration-unit-app
     component: consumer
     version: v1
     managed-by: keda
@@ -30,6 +30,10 @@ spec:
         version: v1
     spec:
       serviceAccountName: settlement-remuneration-unit-app
+      automountServiceAccountToken: false
+      volumes:
+      - name: tmp
+        emptyDir: {}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10000
@@ -45,7 +49,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: settlement-remuneration-unit
-        image: bruno01/settlement-remuneration-unit:01
+        image: bruno01/settlement-unit-remuneration:02
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
@@ -53,32 +57,11 @@ spec:
           capabilities:
             drop:
             - ALL
-        env:
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          valueFrom:
-            secretKeyRef:
-              name: kafka-config
-              key: kafka-brokers
-        - name: KAFKA_USER
-          valueFrom:
-            secretKeyRef:
-              name: kafka-config
-              key: kafka-username
-        - name: KAFKA_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: kafka-config
-              key: kafka-password
-        - name: KAFKA_TOPIC
-          valueFrom:
-            secretKeyRef:
-              name: kafka-config
-              key: kafka-topic
-        - name: KAFKA_CONSUMER_GROUP
-          valueFrom:
-            secretKeyRef:
-              name: kafka-config
-              key: kafka-consumer-group
+
+        envFrom:
+        - secretRef:
+            name: settlement-remuneration-unit-secret
+
         livenessProbe:
           exec:
             command:
