@@ -7,10 +7,10 @@ spec:
   secretTargetRef:
   - parameter: username
     name: settlement-remuneration-unit-secret
-    key: kafka-username
+    key: KAFKA_USER # ← CORRIGIDO
   - parameter: password
     name: settlement-remuneration-unit-secret
-    key: kafka-password
+    key: KAFKA_PASSWORD # ← CORRIGIDO
   - parameter: brokers
     name: settlement-remuneration-unit-secret
-    key: kafka-brokers
+    key: KAFKA_HOSTS # ← CORRIGIDO
