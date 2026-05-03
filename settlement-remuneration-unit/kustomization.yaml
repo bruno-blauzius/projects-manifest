@@ -4,6 +4,8 @@ namespace: dev
 resources:
 - serviceaccount.yaml
 - deployment.yaml
+- deployment-pontual.yamls
 - secret.yaml
 - triggerauthentication.yaml
 - keda-scaledobject.yaml
+- keda-scaledobject-pontual.yaml
