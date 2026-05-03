@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: settlement-remuneration-unit-pontual
+  namespace: dev
+  labels:
+    app: settlement-remuneration-unit-app
+    component: pontual-processor
+    version: v1
+    workload-type: pontual
+    managed-by: keda
+    owner: devops-team
+  annotations:
+    description: "Kafka pontual consumer - instant processing"
+    author: "Bruno Blauzius Schuindt"
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: settlement-remuneration-unit-app
+      workload-type: pontual
+  template:
+    metadata:
+      labels:
+        app: settlement-remuneration-unit-app
+        component: pontual-processor
+        workload-type: pontual
+        version: v1
+    spec:
+      serviceAccountName: settlement-remuneration-unit-app
+      automountServiceAccountToken: false
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        fsGroup: 100000
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: settlement-remuneration-unit-app
+                  workload-type: pontual
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: settlement-remuneration-unit-pontual
+        image: bruno01/settlement-unit-remuneration:02
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        env:
+        # Configurações específicas para processamento pontual
+        - name: PONTUAL_PROCESS
+          value: "true"
+        - name: THREAD_WORKERS
+          value: "8"
+        - name: THREAD_QUEUE_SIZE
+          value: "500"
+        - name: KAFKA_TOPIC
+          valueFrom:
+            secretKeyRef:
+              name: settlement-remuneration-unit-secret
+              key: KAFKA_TOPIC_PONTUAL
+        - name: KAFKA_GROUP_ID
+          valueFrom:
+            secretKeyRef:
+              name: settlement-remuneration-unit-secret
+              key: KAFKA_GROUP_PONTUAL
+        envFrom:
+        - secretRef:
+            name: settlement-remuneration-unit-secret
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - test -f /proc/1/cmdline
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - kill -0 1 2>/dev/null
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+            ephemeral-storage: "2Gi"

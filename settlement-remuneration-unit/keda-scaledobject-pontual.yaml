@@ -1,0 +1,36 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: kafka-consumer-pontual
+  namespace: dev
+  labels:
+    app: settlement-remuneration-unit-app
+    workload-type: pontual
+  annotations:
+    description: "KEDA scaler for pontual/instant processing"
+spec:
+  scaleTargetRef:
+    name: settlement-remuneration-unit-pontual
+  minReplicaCount: 2 # Sempre 2 pods prontos para resposta rápida
+  maxReplicaCount: 5 # Pode escalar bastante
+  pollingInterval: 30 # Verifica a cada 30s (menos agressivo)
+  cooldownPeriod: 120 # Desescala mais devagar (2 min)
+  fallback:
+    failureThreshold: 5
+    replicas: 2
+  triggers:
+  - type: kafka
+    metadata:
+      brokers: "placeholder" # Lido do TriggerAuthentication
+      consumerGroup: settlement-remuneration-unit-pontual-group
+      topic: settlement-remuneration-unit-process-pontual
+      lagThreshold: "20" # Menos sensível - escala apenas com mais lag
+      offsetResetPolicy: latest
+      scaleToZeroOnInvalidOffset: "false"
+      allowIdleConsumers: "false"
+      excludePersistentLag: "true"
+      sasl: scram_sha512
+      tls: enable
+      version: "latest"
+    authenticationRef:
+      name: kafka-trigger-auth
