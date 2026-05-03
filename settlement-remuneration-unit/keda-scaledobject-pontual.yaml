@@ -23,7 +23,7 @@ spec:
     metadata:
       brokers: "placeholder" # Lido do TriggerAuthentication
       consumerGroup: settlement-remuneration-unit-pontual-group
-      topic: settlement-remuneration-unit-process-pontual
+      topic: settlement-remuneration-unit-kafka-pontual-process-local
       lagThreshold: "20" # Menos sensível - escala apenas com mais lag
       offsetResetPolicy: latest
       scaleToZeroOnInvalidOffset: "false"
