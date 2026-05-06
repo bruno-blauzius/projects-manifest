@@ -1,0 +1,300 @@
+#!/usr/bin/env groovy
+
+// ============================================================================
+// Pipeline: Settlement Remuneration Unit - Kafka Processors
+// Estratégia: Topics Separados (Processo A + Processo B independentes)
+// ============================================================================
+
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+    }
+
+    parameters {
+        string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Docker image tag')
+        choice(name: 'KUBE_NAMESPACE', choices: ['dev', 'homolog', 'prod'], description: 'Kubernetes namespace')
+    }
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        AWS_ACCOUNT = '770967265766'
+        ECR_REGISTRY = "${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        IMAGE_REPO = 'settlement-unit-remuneration'
+        IMAGE_TAG = "${DOCKER_TAG ?: env.BUILD_NUMBER}"
+        APP_NAME = 'settlement-remuneration-unit'
+        MANIFEST_PATH = 'settlement-remuneration-unit'
+        ENVIRONMENT = "${KUBE_NAMESPACE}"
+    }
+
+    stages {
+        stage('🔍 Clone & Validate') {
+            steps {
+                script {
+                    checkout scm
+                    echo "✅ Repository cloned"
+                    echo "Build: ${env.BUILD_NUMBER}"
+                    echo "Tag: ${IMAGE_TAG}"
+                    echo "Namespace: ${KUBE_NAMESPACE}"
+                    echo "Environment: ${ENVIRONMENT}"
+                }
+            }
+        }
+
+        stage('🐳 Build Docker Image') {
+            steps {
+                script {
+                    sh '''
+                        echo "🔨 Building Docker image: ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}"
+                        docker build \
+                            -t ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG} \
+                            -t ${ECR_REGISTRY}/${IMAGE_REPO}:latest \
+                            .
+                        echo "✅ Docker image built successfully"
+                    '''
+                }
+            }
+        }
+
+        stage('🚀 Push to ECR') {
+            steps {
+                script {
+                    sh '''
+                        echo "📤 Pushing image to ECR..."
+                        aws ecr get-login-password --region ${AWS_REGION} | \
+                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+                        docker push ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${IMAGE_REPO}:latest
+
+                        echo "✅ Image pushed to ECR"
+                    '''
+                }
+            }
+        }
+
+        stage('📝 Update Manifests') {
+            steps {
+                script {
+                    sh '''
+                        echo "📝 Atualizando imagem nos deployments..."
+
+                        # Atualiza Deployment Massivo
+                        sed -i "s|image: .*settlement-unit-remuneration:.*|image: ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}|g" \
+                            ${MANIFEST_PATH}/deployment.yaml
+
+                        # Atualiza Deployment Pontual
+                        sed -i "s|image: .*settlement-unit-remuneration:.*|image: ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}|g" \
+                            ${MANIFEST_PATH}/deployment-pontual.yaml
+
+                        echo "✅ Manifestos atualizados"
+                        echo ""
+                        echo "=== Deployment Massivo ==="
+                        grep "image:" ${MANIFEST_PATH}/deployment.yaml | head -1
+                        echo ""
+                        echo "=== Deployment Pontual ==="
+                        grep "image:" ${MANIFEST_PATH}/deployment-pontual.yaml | head -1
+                    '''
+                }
+            }
+        }
+
+        stage('✅ Validate Kustomize') {
+            steps {
+                script {
+                    sh '''
+                        echo "🔍 Validando Kustomize..."
+                        cd ${MANIFEST_PATH}
+                        kustomize build . > /tmp/kustomize-build.yaml
+                        echo "✅ Kustomize build valid"
+                        echo ""
+                        echo "Resources encontrados:"
+                        grep "^  name:" /tmp/kustomize-build.yaml | wc -l
+                        echo " recursos"
+                    '''
+                }
+            }
+        }
+
+        stage('🔬 Dry-Run') {
+            steps {
+                script {
+                    sh '''
+                        echo "🔬 Executando dry-run..."
+                        kubectl apply -k ${MANIFEST_PATH}/ \
+                            -n ${KUBE_NAMESPACE} \
+                            --dry-run=client \
+                            -o yaml > /tmp/deploy-manifest.yaml
+
+                        echo "✅ Dry-run successful"
+                        echo ""
+                        echo "Deployment Massivo:"
+                        grep -A5 "name: settlement-remuneration-unit-app" /tmp/deploy-manifest.yaml | head -6
+                        echo ""
+                        echo "Deployment Pontual:"
+                        grep -A5 "name: settlement-remuneration-unit-pontual" /tmp/deploy-manifest.yaml | head -6
+                    '''
+                }
+            }
+        }
+
+        stage('🚢 Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh '''
+                        echo "🚀 Deployando para ${KUBE_NAMESPACE}..."
+                        kubectl apply -k ${MANIFEST_PATH}/ -n ${KUBE_NAMESPACE}
+                        echo "✅ Kubectl apply executado"
+                    '''
+                }
+            }
+        }
+
+        stage('📊 Rollout Status - Massivo') {
+            steps {
+                script {
+                    sh '''
+                        echo "⏳ Aguardando rollout do Deployment Massivo..."
+                        kubectl rollout status deployment/settlement-remuneration-unit-app \
+                            -n ${KUBE_NAMESPACE} \
+                            --timeout=5m
+
+                        echo "✅ Deployment Massivo - Ready"
+                        kubectl get deployment settlement-remuneration-unit-app -n ${KUBE_NAMESPACE} -o wide
+                    '''
+                }
+            }
+        }
+
+        stage('📊 Rollout Status - Pontual') {
+            steps {
+                script {
+                    sh '''
+                        echo "⏳ Aguardando rollout do Deployment Pontual..."
+                        kubectl rollout status deployment/settlement-remuneration-unit-pontual \
+                            -n ${KUBE_NAMESPACE} \
+                            --timeout=5m
+
+                        echo "✅ Deployment Pontual - Ready"
+                        kubectl get deployment settlement-remuneration-unit-pontual -n ${KUBE_NAMESPACE} -o wide
+                    '''
+                }
+            }
+        }
+
+        stage('🔍 Verify Pods') {
+            steps {
+                script {
+                    sh '''
+                        echo "🔍 Verificando Pods..."
+                        kubectl get pods -n ${KUBE_NAMESPACE} \
+                            -l app=settlement-remuneration-unit-app \
+                            -o wide
+
+                        echo ""
+                        echo "Verificando logs (últimas 20 linhas)..."
+                        kubectl logs -n ${KUBE_NAMESPACE} \
+                            -l app=settlement-remuneration-unit-app \
+                            --tail=20 \
+                            --timestamps=true 2>/dev/null || echo "Logs ainda não disponíveis"
+                    '''
+                }
+            }
+        }
+
+        stage('💾 Commit Manifests') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'bitbucket2', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                        sh '''
+                            git config user.email "jenkins@redelojacorr.com.br"
+                            git config user.name "Jenkins CI"
+
+                            git add ${MANIFEST_PATH}/deployment.yaml ${MANIFEST_PATH}/deployment-pontual.yaml
+                            git commit -m "chore: update image to ${IMAGE_TAG} [build #${BUILD_NUMBER}]" || true
+
+                            git push https://${GIT_USERNAME}:${GIT_PASSWORD}@bitbucket.org/syscorr/homolog-manifest.git HEAD:master
+
+                            echo "✅ Manifestos commitados no Git"
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('🏆 Success Summary') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
+            steps {
+                script {
+                    sh '''
+                        echo ""
+                        echo "╔════════════════════════════════════════════════════════╗"
+                        echo "║                   ✅ DEPLOY SUCCESSFUL                 ║"
+                        echo "╚════════════════════════════════════════════════════════╝"
+                        echo ""
+                        echo "📊 Summary:"
+                        echo "  - Image Tag: ${IMAGE_TAG}"
+                        echo "  - Namespace: ${KUBE_NAMESPACE}"
+                        echo "  - Build #: ${BUILD_NUMBER}"
+                        echo ""
+                        echo "🔗 Resources:"
+                        echo "  - Deployment Massivo: settlement-remuneration-unit-app"
+                        echo "  - Deployment Pontual: settlement-remuneration-unit-pontual"
+                        echo "  - Consumer A: liberar-fechamento (independent)"
+                        echo "  - Consumer B: conciliar-apolices (independent)"
+                        echo ""
+                        echo "📈 Check status:"
+                        echo "  kubectl get pods -n ${KUBE_NAMESPACE} | grep settlement"
+                        echo "  kubectl logs -n ${KUBE_NAMESPACE} -l app=settlement-remuneration-unit-app -f"
+                        echo ""
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            script {
+                sh '''
+                    echo "❌ Deploy falhou!"
+                    echo "Revert automático em 30 segundos..."
+                    sleep 30
+
+                    echo "⏮️  Executando rollback..."
+                    kubectl rollout undo deployment/settlement-remuneration-unit-app \
+                        -n ${KUBE_NAMESPACE} || true
+                    kubectl rollout undo deployment/settlement-remuneration-unit-pontual \
+                        -n ${KUBE_NAMESPACE} || true
+
+                    kubectl rollout status deployment/settlement-remuneration-unit-app \
+                        -n ${KUBE_NAMESPACE} --timeout=3m || true
+                    kubectl rollout status deployment/settlement-remuneration-unit-pontual \
+                        -n ${KUBE_NAMESPACE} --timeout=3m || true
+
+                    echo "✅ Rollback completo"
+                '''
+            }
+        }
+
+        always {
+            script {
+                sh '''
+                    echo ""
+                    echo "🧹 Limpando recursos locais..."
+                    docker logout ${ECR_REGISTRY} || true
+                    echo "✅ Cleanup complete"
+                '''
+            }
+        }
+    }
+}
+}
