@@ -2,10 +2,18 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: dev
 resources:
-- serviceaccount.yaml
-- deployment.yaml
-- deployment-pontual.yaml
-- secret.yaml
-- triggerauthentication.yaml
-- keda-scaledobject.yaml
-- keda-scaledobject-pontual.yaml
+  - serviceaccount.yaml
+  - deployment.yaml
+  - deployment-fechamento.yaml
+  - deployment-exclusao.yaml
+  - deployment-pontual.yaml
+  - secret.yaml
+  - triggerauthentication.yaml
+  - keda-scaledobject.yaml
+  - keda-scaledobject-pontual.yaml
+
+# Define a imagem uma única vez - aplica a AMBOS deployments
+images:
+  - name: settlement-unit-remuneration
+    newName: 770967265766.dkr.ecr.us-east-1.amazonaws.com/settlement-unit-remuneration
+    newTag: "02" # Será atualizado pelo Jenkinsfile

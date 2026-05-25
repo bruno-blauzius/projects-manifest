@@ -1,16 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: settlement-remuneration-unit-app
+  name: settlement-remuneration-unit-app-exclusao
   namespace: dev
   labels:
     app: settlement-remuneration-unit-app
-    component: consumer
+    component: exclusao-processor
     version: v1
+    workload-type: exclusao
     managed-by: keda
     owner: devops-team
   annotations:
-    description: "Kafka consumer scaled by KEDA"
+    description: "Kafka consumer for settlement exclusion - delete operations"
     author: "Bruno Blauzius Schuindt"
 spec:
   # replicas gerenciadas pelo KEDA HPA - não definir aqui
@@ -22,11 +23,13 @@ spec:
   selector:
     matchLabels:
       app: settlement-remuneration-unit-app
+      workload-type: exclusao
   template:
     metadata:
       labels:
         app: settlement-remuneration-unit-app
-        component: consumer
+        component: exclusao-processor
+        workload-type: exclusao
         version: v1
     spec:
       serviceAccountName: settlement-remuneration-unit-app
@@ -46,9 +49,10 @@ spec:
               labelSelector:
                 matchLabels:
                   app: settlement-remuneration-unit-app
+                  workload-type: exclusao
               topologyKey: kubernetes.io/hostname
       containers:
-      - name: settlement-remuneration-unit
+      - name: settlement-remuneration-unit-exclusao
         image: settlement-unit-remuneration:02
         imagePullPolicy: Always
         securityContext:
@@ -57,11 +61,24 @@ spec:
           capabilities:
             drop:
             - ALL
-
+        env:
+        # Configurações específicas para processamento de exclusão
+        - name: EXCLUSAO_PROCESS
+          value: "true"
+        - name: THREAD_WORKERS
+          value: "2"
+        - name: THREAD_QUEUE_SIZE
+          value: "200"
+        - name: KAFKA_TOPIC
+          value: "settlement-remuneration-unit-homolog-exclusao"
+        - name: KAFKA_GROUP_ID
+          value: "settlement-remuneration-unit-exclusao-processor-group"
         envFrom:
         - secretRef:
             name: settlement-remuneration-unit-secret
-
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         livenessProbe:
           exec:
             command:

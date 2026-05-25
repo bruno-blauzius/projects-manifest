@@ -80,23 +80,16 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        echo "📝 Atualizando imagem nos deployments..."
+                        echo "📝 Atualizando imagem via Kustomize..."
+                        cd ${MANIFEST_PATH}
 
-                        # Atualiza Deployment Massivo
-                        sed -i "s|image: .*settlement-unit-remuneration:.*|image: ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}|g" \
-                            ${MANIFEST_PATH}/deployment.yaml
+                        # Uma única linha atualiza AMBOS deployments
+                        kustomize edit set image \
+                            settlement-unit-remuneration=${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}
 
-                        # Atualiza Deployment Pontual
-                        sed -i "s|image: .*settlement-unit-remuneration:.*|image: ${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}|g" \
-                            ${MANIFEST_PATH}/deployment-pontual.yaml
-
-                        echo "✅ Manifestos atualizados"
+                        echo "✅ Imagem atualizada em kustomization.yaml"
                         echo ""
-                        echo "=== Deployment Massivo ==="
-                        grep "image:" ${MANIFEST_PATH}/deployment.yaml | head -1
-                        echo ""
-                        echo "=== Deployment Pontual ==="
-                        grep "image:" ${MANIFEST_PATH}/deployment-pontual.yaml | head -1
+                        grep -A2 "images:" kustomization.yaml
                     '''
                 }
             }
@@ -169,6 +162,38 @@ pipeline {
             }
         }
 
+        stage('📊 Rollout Status - Fechamento') {
+            steps {
+                script {
+                    sh '''
+                        echo "⏳ Aguardando rollout do Deployment Fechamento..."
+                        kubectl rollout status deployment/settlement-remuneration-unit-app-fechamento \
+                            -n ${KUBE_NAMESPACE} \
+                            --timeout=5m
+
+                        echo "✅ Deployment Fechamento - Ready"
+                        kubectl get deployment settlement-remuneration-unit-app-fechamento -n ${KUBE_NAMESPACE} -o wide
+                    '''
+                }
+            }
+        }
+
+        stage('📊 Rollout Status - Exclusão') {
+            steps {
+                script {
+                    sh '''
+                        echo "⏳ Aguardando rollout do Deployment Exclusão..."
+                        kubectl rollout status deployment/settlement-remuneration-unit-app-exclusao \
+                            -n ${KUBE_NAMESPACE} \
+                            --timeout=5m
+
+                        echo "✅ Deployment Exclusão - Ready"
+                        kubectl get deployment settlement-remuneration-unit-app-exclusao -n ${KUBE_NAMESPACE} -o wide
+                    '''
+                }
+            }
+        }
+
         stage('📊 Rollout Status - Pontual') {
             steps {
                 script {
@@ -216,12 +241,12 @@ pipeline {
                             git config user.email "jenkins@redelojacorr.com.br"
                             git config user.name "Jenkins CI"
 
-                            git add ${MANIFEST_PATH}/deployment.yaml ${MANIFEST_PATH}/deployment-pontual.yaml
+                            git add ${MANIFEST_PATH}/kustomization.yaml
                             git commit -m "chore: update image to ${IMAGE_TAG} [build #${BUILD_NUMBER}]" || true
 
                             git push https://${GIT_USERNAME}:${GIT_PASSWORD}@bitbucket.org/syscorr/homolog-manifest.git HEAD:master
 
-                            echo "✅ Manifestos commitados no Git"
+                            echo "✅ kustomization.yaml commitado no Git"
                         '''
                     }
                 }
@@ -247,9 +272,12 @@ pipeline {
                         echo ""
                         echo "🔗 Resources:"
                         echo "  - Deployment Massivo: settlement-remuneration-unit-app"
+                        echo "  - Deployment Fechamento: settlement-remuneration-unit-app-fechamento"
+                        echo "  - Deployment Exclusão: settlement-remuneration-unit-app-exclusao"
                         echo "  - Deployment Pontual: settlement-remuneration-unit-pontual"
                         echo "  - Consumer A: liberar-fechamento (independent)"
                         echo "  - Consumer B: conciliar-apolices (independent)"
+                        echo "  - Consumer C: exclusao-operacoes (independent)"
                         echo ""
                         echo "📈 Check status:"
                         echo "  kubectl get pods -n ${KUBE_NAMESPACE} | grep settlement"
@@ -272,10 +300,18 @@ pipeline {
                     echo "⏮️  Executando rollback..."
                     kubectl rollout undo deployment/settlement-remuneration-unit-app \
                         -n ${KUBE_NAMESPACE} || true
+                    kubectl rollout undo deployment/settlement-remuneration-unit-app-fechamento \
+                        -n ${KUBE_NAMESPACE} || true
+                    kubectl rollout undo deployment/settlement-remuneration-unit-app-exclusao \
+                        -n ${KUBE_NAMESPACE} || true
                     kubectl rollout undo deployment/settlement-remuneration-unit-pontual \
                         -n ${KUBE_NAMESPACE} || true
 
                     kubectl rollout status deployment/settlement-remuneration-unit-app \
+                        -n ${KUBE_NAMESPACE} --timeout=3m || true
+                    kubectl rollout status deployment/settlement-remuneration-unit-app-fechamento \
+                        -n ${KUBE_NAMESPACE} --timeout=3m || true
+                    kubectl rollout status deployment/settlement-remuneration-unit-app-exclusao \
                         -n ${KUBE_NAMESPACE} --timeout=3m || true
                     kubectl rollout status deployment/settlement-remuneration-unit-pontual \
                         -n ${KUBE_NAMESPACE} --timeout=3m || true
@@ -296,5 +332,4 @@ pipeline {
             }
         }
     }
-}
 }

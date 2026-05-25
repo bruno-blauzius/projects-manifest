@@ -1,16 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: settlement-remuneration-unit-app
+  name: settlement-remuneration-unit-app-fechamento
   namespace: dev
   labels:
     app: settlement-remuneration-unit-app
-    component: consumer
+    component: fechamento-processor
     version: v1
+    workload-type: fechamento
     managed-by: keda
     owner: devops-team
   annotations:
-    description: "Kafka consumer scaled by KEDA"
+    description: "Kafka consumer for settlement closure - liberar-fechamento"
     author: "Bruno Blauzius Schuindt"
 spec:
   # replicas gerenciadas pelo KEDA HPA - não definir aqui
@@ -22,11 +23,13 @@ spec:
   selector:
     matchLabels:
       app: settlement-remuneration-unit-app
+      workload-type: fechamento
   template:
     metadata:
       labels:
         app: settlement-remuneration-unit-app
-        component: consumer
+        component: fechamento-processor
+        workload-type: fechamento
         version: v1
     spec:
       serviceAccountName: settlement-remuneration-unit-app
@@ -46,9 +49,10 @@ spec:
               labelSelector:
                 matchLabels:
                   app: settlement-remuneration-unit-app
+                  workload-type: fechamento
               topologyKey: kubernetes.io/hostname
       containers:
-      - name: settlement-remuneration-unit
+      - name: settlement-remuneration-unit-fechamento
         image: settlement-unit-remuneration:02
         imagePullPolicy: Always
         securityContext:
@@ -57,11 +61,24 @@ spec:
           capabilities:
             drop:
             - ALL
-
+        env:
+        # Configurações específicas para processamento de fechamento
+        - name: FECHAMENTO_PROCESS
+          value: "true"
+        - name: THREAD_WORKERS
+          value: "4"
+        - name: THREAD_QUEUE_SIZE
+          value: "300"
+        - name: KAFKA_TOPIC
+          value: "settlement-remuneration-unit-homolog-fechamento"
+        - name: KAFKA_GROUP_ID
+          value: "settlement-remuneration-unit-fechamento-processor-group"
         envFrom:
         - secretRef:
             name: settlement-remuneration-unit-secret
-
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         livenessProbe:
           exec:
             command:
