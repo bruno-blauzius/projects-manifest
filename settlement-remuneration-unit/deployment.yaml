@@ -7,6 +7,7 @@ metadata:
     app: settlement-remuneration-unit-app
     component: consumer
     version: v1
+    workload-type: massivo
     managed-by: keda
     owner: devops-team
   annotations:
@@ -22,11 +23,13 @@ spec:
   selector:
     matchLabels:
       app: settlement-remuneration-unit-app
+      workload-type: massivo
   template:
     metadata:
       labels:
         app: settlement-remuneration-unit-app
         component: consumer
+        workload-type: massivo
         version: v1
     spec:
       serviceAccountName: settlement-remuneration-unit-app
@@ -46,6 +49,7 @@ spec:
               labelSelector:
                 matchLabels:
                   app: settlement-remuneration-unit-app
+                  workload-type: massivo
               topologyKey: kubernetes.io/hostname
       containers:
       - name: settlement-remuneration-unit
@@ -61,6 +65,10 @@ spec:
         envFrom:
         - secretRef:
             name: settlement-remuneration-unit-secret
+
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
 
         livenessProbe:
           exec:

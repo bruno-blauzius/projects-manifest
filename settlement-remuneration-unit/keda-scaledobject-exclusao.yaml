@@ -22,8 +22,8 @@ spec:
   - type: kafka
     metadata:
       brokers: "placeholder" # Lido do TriggerAuthentication
-      consumerGroup: settlement-remuneration-unit-exclusao-group
-      topic: settlement-remuneration-unit-kafka-local
+      consumerGroup: settlement-remuneration-unit-exclusao-processor-group
+      topic: settlement-remuneration-unit-homolog-exclusao
       lagThreshold: "15" # Menos sensível - aguarda mais lag antes de escalar
       offsetResetPolicy: latest
       scaleToZeroOnInvalidOffset: "false"

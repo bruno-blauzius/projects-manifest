@@ -22,8 +22,8 @@ spec:
   - type: kafka
     metadata:
       brokers: "placeholder" # Lido do TriggerAuthentication
-      consumerGroup: settlement-remuneration-unit-fechamento-group
-      topic: settlement-remuneration-unit-kafka-local
+      consumerGroup: settlement-remuneration-unit-fechamento-processor-group
+      topic: settlement-remuneration-unit-homolog-fechamento
       lagThreshold: "10" # Escala com lag moderado (meio termo)
       offsetResetPolicy: latest
       scaleToZeroOnInvalidOffset: "false"
