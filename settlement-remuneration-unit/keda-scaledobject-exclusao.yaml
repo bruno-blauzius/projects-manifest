@@ -1,20 +1,20 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: kafka-consumer-scaler
+  name: kafka-consumer-exclusao
   namespace: dev
   labels:
     app: settlement-remuneration-unit-app
-    workload-type: massivo
+    workload-type: exclusao
   annotations:
-    description: "KEDA scaler for massive batch processing"
+    description: "KEDA scaler for settlement deletion/exclusion processing"
 spec:
   scaleTargetRef:
-    name: settlement-remuneration-unit-app
-  minReplicaCount: 1 # Mínimo 1 pod sempre ativo
-  maxReplicaCount: 10 # Altamente escalável para processar volume massivo
-  pollingInterval: 30 # Verifica a cada 30s
-  cooldownPeriod: 120 # Desescala após 2 minutos
+    name: settlement-remuneration-unit-app-exclusao
+  minReplicaCount: 1 # Mínimo 1 pod
+  maxReplicaCount: 4 # Menos escalável - operações críticas de exclusão
+  pollingInterval: 45 # Menos agressivo - verifica a cada 45s
+  cooldownPeriod: 180 # Desescala mais lentamente (3 minutos)
   fallback:
     failureThreshold: 5
     replicas: 1
@@ -22,9 +22,9 @@ spec:
   - type: kafka
     metadata:
       brokers: "placeholder" # Lido do TriggerAuthentication
-      consumerGroup: settlement-remuneration-unit-consumer-group
+      consumerGroup: settlement-remuneration-unit-exclusao-group
       topic: settlement-remuneration-unit-kafka-local
-      lagThreshold: "5" # Muito sensível - escala agressivamente
+      lagThreshold: "15" # Menos sensível - aguarda mais lag antes de escalar
       offsetResetPolicy: latest
       scaleToZeroOnInvalidOffset: "false"
       allowIdleConsumers: "false"

@@ -10,6 +10,8 @@ resources:
   - secret.yaml
   - triggerauthentication.yaml
   - keda-scaledobject.yaml
+  - keda-scaledobject-fechamento.yaml
+  - keda-scaledobject-exclusao.yaml
   - keda-scaledobject-pontual.yaml
 
 # Define a imagem uma única vez - aplica a AMBOS deployments
