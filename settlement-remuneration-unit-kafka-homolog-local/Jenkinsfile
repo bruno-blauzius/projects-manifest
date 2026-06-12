@@ -26,7 +26,9 @@ pipeline {
         IMAGE_REPO = 'settlement-unit-remuneration'
         IMAGE_TAG = "${DOCKER_TAG ?: env.BUILD_NUMBER}"
         APP_NAME = 'settlement-remuneration-unit'
-        MANIFEST_PATH = 'settlement-remuneration-unit'
+        MANIFEST_PATH = 'settlement-remuneration-unit-kafka-homolog-local'
+        // Nome da imagem como está nos manifests (chave de match do kustomize)
+        KUSTOMIZE_IMAGE_NAME = 'lambda-settlement-remuneration-unit'
         ENVIRONMENT = "${KUBE_NAMESPACE}"
     }
 
@@ -83,9 +85,11 @@ pipeline {
                         echo "📝 Atualizando imagem via Kustomize..."
                         cd ${MANIFEST_PATH}
 
-                        # Uma única linha atualiza AMBOS deployments
+                        # Casa pelo nome original da imagem nos manifests (lado esquerdo)
+                        # e substitui pelo endereço ECR (lado direito).
+                        # Uma única linha atualiza os 4 deployments.
                         kustomize edit set image \
-                            settlement-unit-remuneration=${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}
+                            ${KUSTOMIZE_IMAGE_NAME}=${ECR_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}
 
                         echo "✅ Imagem atualizada em kustomization.yaml"
                         echo ""
@@ -124,11 +128,8 @@ pipeline {
 
                         echo "✅ Dry-run successful"
                         echo ""
-                        echo "Deployment Massivo:"
-                        grep -A5 "name: settlement-remuneration-unit-app" /tmp/deploy-manifest.yaml | head -6
-                        echo ""
-                        echo "Deployment Pontual:"
-                        grep -A5 "name: settlement-remuneration-unit-pontual" /tmp/deploy-manifest.yaml | head -6
+                        echo "Imagens resolvidas nos deployments:"
+                        grep "image: ${ECR_REGISTRY}/${IMAGE_REPO}" /tmp/deploy-manifest.yaml
                     '''
                 }
             }
