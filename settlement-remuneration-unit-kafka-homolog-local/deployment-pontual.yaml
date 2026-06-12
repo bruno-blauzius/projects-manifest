@@ -52,7 +52,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: settlement-remuneration-unit-pontual
-        image: settlement-unit-remuneration:02
+        image: lambda-settlement-remuneration-unit:dev
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
