@@ -1,18 +1,18 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: kafka-consumer-scaler
+  name: kafka-consumer-fechamento
   namespace: dev
   labels:
     app: settlement-remuneration-unit-app
-    workload-type: massivo
+    workload-type: fechamento
   annotations:
-    description: "KEDA scaler for massive batch processing"
+    description: "KEDA scaler for settlement closure processing"
 spec:
   scaleTargetRef:
-    name: settlement-remuneration-unit-app
-  minReplicaCount: 1 # Mínimo 1 pod sempre ativo
-  maxReplicaCount: 10 # Altamente escalável para processar volume massivo
+    name: settlement-remuneration-unit-app-fechamento
+  minReplicaCount: 1 # Fixado em 1 réplica
+  maxReplicaCount: 1 # Fixado em 1 réplica
   pollingInterval: 30 # Verifica a cada 30s
   cooldownPeriod: 120 # Desescala após 2 minutos
   fallback:
@@ -22,9 +22,9 @@ spec:
   - type: kafka
     metadata:
       brokers: "placeholder" # Lido do TriggerAuthentication
-      consumerGroup: settlement-remuneration-unit-consumer-group
-      topic: settlement-remuneration-unit-kafka-local
-      lagThreshold: "5" # Muito sensível - escala agressivamente
+      consumerGroup: settlement-remuneration-unit-fechamento-processor-group
+      topic: settlement-remuneration-unit-homolog-fechamento
+      lagThreshold: "10" # Escala com lag moderado (meio termo)
       offsetResetPolicy: latest
       scaleToZeroOnInvalidOffset: "false"
       allowIdleConsumers: "false"

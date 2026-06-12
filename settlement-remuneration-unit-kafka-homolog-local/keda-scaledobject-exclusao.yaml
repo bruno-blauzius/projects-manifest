@@ -11,8 +11,8 @@ metadata:
 spec:
   scaleTargetRef:
     name: settlement-remuneration-unit-app-exclusao
-  minReplicaCount: 1 # Mínimo 1 pod
-  maxReplicaCount: 4 # Menos escalável - operações críticas de exclusão
+  minReplicaCount: 1 # Fixado em 1 réplica
+  maxReplicaCount: 1 # Fixado em 1 réplica
   pollingInterval: 45 # Menos agressivo - verifica a cada 45s
   cooldownPeriod: 180 # Desescala mais lentamente (3 minutos)
   fallback:

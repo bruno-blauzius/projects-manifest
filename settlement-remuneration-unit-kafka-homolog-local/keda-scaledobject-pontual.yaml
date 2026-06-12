@@ -11,13 +11,13 @@ metadata:
 spec:
   scaleTargetRef:
     name: settlement-remuneration-unit-pontual
-  minReplicaCount: 2 # Sempre 2 pods prontos para resposta rápida
-  maxReplicaCount: 5 # Pode escalar bastante
+  minReplicaCount: 1 # Fixado em 1 réplica
+  maxReplicaCount: 1 # Fixado em 1 réplica
   pollingInterval: 30 # Verifica a cada 30s (menos agressivo)
   cooldownPeriod: 120 # Desescala mais devagar (2 min)
   fallback:
     failureThreshold: 5
-    replicas: 2
+    replicas: 1
   triggers:
   - type: kafka
     metadata:
