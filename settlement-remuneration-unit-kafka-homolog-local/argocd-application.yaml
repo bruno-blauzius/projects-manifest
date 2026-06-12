@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: settlement-remuneration-unit
+  name: settlement-remuneration-unit-app
   namespace: argocd
 spec:
   project: default
@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/bruno-blauzius/projects-manifest.git
     targetRevision: HEAD
-    path: settlement-remuneration-unit
+    path: settlement-remuneration-unit-kafka-homolog-local
 
   destination:
     server: https://kubernetes.default.svc

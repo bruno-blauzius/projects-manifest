@@ -54,7 +54,7 @@ spec:
       containers:
       - name: settlement-remuneration-unit
         image: lambda-settlement-remuneration-unit:dev
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
